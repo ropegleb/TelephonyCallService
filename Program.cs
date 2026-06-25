@@ -8,9 +8,7 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-app.UseSwagger();
-app.UseSwaggerUI();
-
+// Normalize double slashes before routing kicks in
 app.Use(async (context, next) =>
 {
     var path = context.Request.Path.Value;
@@ -18,6 +16,10 @@ app.Use(async (context, next) =>
         context.Request.Path = "/" + path.TrimStart('/');
     await next();
 });
+
+app.UseRouting();
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.MapPost("/from", (PostFromRequest req, SessionRepository repo) =>
 {
@@ -34,8 +36,11 @@ app.MapPost("/from", (PostFromRequest req, SessionRepository repo) =>
 .WithName("PostFrom")
 .WithTags("From");
 
-app.MapGet("/from", (string contact, SessionRepository repo) =>
+app.MapGet("/from", (string? contact, SessionRepository repo) =>
 {
+    if (string.IsNullOrEmpty(contact))
+        return Results.BadRequest(new { error = "contact parameter is required" });
+
     var xi = ContactParser.ExtractXi(contact);
     if (xi is null)
         return Results.BadRequest(new { error = "x-i parameter not found in contact header" });
