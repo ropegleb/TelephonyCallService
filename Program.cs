@@ -11,6 +11,14 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path.Value;
+    if (path != null && path.Contains("//"))
+        context.Request.Path = "/" + path.TrimStart('/');
+    await next();
+});
+
 app.MapPost("/from", (PostFromRequest req, SessionRepository repo) =>
 {
     var xi = ContactParser.ExtractXi(req.Contact);
