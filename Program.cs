@@ -21,13 +21,33 @@ app.UseRouting();
 app.UseSwagger();
 app.UseSwaggerUI();
 
-app.MapPost("/from", (PostFromRequest req, SessionRepository repo) =>
+app.MapPost("/from", async (HttpContext ctx, SessionRepository repo) =>
 {
-    var xi = ContactParser.ExtractXi(req.Contact);
+    string body;
+    using (var reader = new StreamReader(ctx.Request.Body))
+        body = await reader.ReadToEndAsync();
+
+    string? contact, from;
+    try
+    {
+        var req = System.Text.Json.JsonSerializer.Deserialize<PostFromRequest>(body,
+            new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        contact = req?.Contact;
+        from = req?.From;
+    }
+    catch (System.Text.Json.JsonException)
+    {
+        (contact, from) = BodyParser.ParseRaw(body);
+    }
+
+    if (string.IsNullOrEmpty(contact))
+        return Results.BadRequest(new { error = "contact is required" });
+
+    var xi = ContactParser.ExtractXi(contact);
     if (xi is null)
         return Results.BadRequest(new { error = "x-i parameter not found in contact header" });
 
-    repo.Save(xi, req.From);
+    repo.Save(xi, from ?? string.Empty);
     return Results.Ok();
 })
 .Accepts<PostFromRequest>("application/json")
